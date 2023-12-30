@@ -12,7 +12,7 @@ from safetensors.torch import load_file
 
 import kiui
 
-def main(num_epochs=100, resume=None, workspace='workspace'):
+def main(num_epochs=5, resume=True, workspace='workspace'):
 
     os.makedirs(workspace, exist_ok=True)
     accelerator = Accelerator(mixed_precision='fp16')
@@ -21,11 +21,9 @@ def main(num_epochs=100, resume=None, workspace='workspace'):
     model = Classifier()
 
     # resume
-    if resume is not None:
-        if resume.endswith('safetensors'):
-            ckpt = load_file(resume, device='cpu')
-        else:
-            ckpt = torch.load(resume, map_location='cpu')
+    last_ckpt = os.path.join(workspace, 'model.safetensors')
+    if resume and os.path.exists(last_ckpt):
+        ckpt = load_file(last_ckpt, device='cpu')
         model.load_state_dict(ckpt, strict=False)
     
     # data
@@ -42,21 +40,21 @@ def main(num_epochs=100, resume=None, workspace='workspace'):
     test_dataset = Cap3DDataset(training=False)
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=1,
+        batch_size=512,
         shuffle=False,
-        num_workers=0,
+        num_workers=8,
         pin_memory=True,
         drop_last=False,
     )
 
     # optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=4e-4, weight_decay=0.05, betas=(0.9, 0.95))
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
     # scheduler (per-iteration)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=3000, eta_min=1e-6)
     total_steps = num_epochs * len(train_dataloader)
-    pct_start = 3000 / total_steps
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=4e-4, total_steps=total_steps, pct_start=pct_start)
+    pct_start = 0.1 # 3000 / total_steps
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=1e-5, total_steps=total_steps, pct_start=pct_start)
 
     # accelerate
     model, optimizer, train_dataloader, test_dataloader, scheduler = accelerator.prepare(
@@ -116,11 +114,16 @@ def main(num_epochs=100, resume=None, workspace='workspace'):
                 
                 accuracy = (preds == labels).float().mean()
                 total_acc += accuracy.detach()
+
+                if accelerator.is_main_process:
+                    if i % 10 == 0:
+                        mem_free, mem_total = torch.cuda.mem_get_info()    
+                        print(f"[INFO] {i}/{len(test_dataloader)} mem: {(mem_total-mem_free)/1024**3:.2f}/{mem_total/1024**3:.2f}G lr: {scheduler.get_last_lr()[0]:.7f} accuracy: {accuracy.item():.6f}")
             
             total_acc = accelerator.gather_for_metrics(total_acc).mean()
             if accelerator.is_main_process:
                 total_acc /= len(test_dataloader)
-                accelerator.print(f"[train] epoch: {epoch} acc: {100 * total_acc.item():.2f}%")
+                accelerator.print(f"[eval] epoch: {epoch} acc: {100 * total_acc.item():.2f}%")
 
 
 

@@ -31,6 +31,10 @@ class Cap3DDataset(Dataset):
         for uid, score in db.items():
             self.items.append(uid)
             self.labels.append(score) # 0/1
+        
+        # stat
+        self.labels = np.array(self.labels)
+        print(f'[INFO] labels: mean = {np.mean(self.labels)}, 0 = {(self.labels == 0).sum()}, 1 = {(self.labels == 1).sum()}')
 
         num_train = int(len(self.items) * split_ratio)
         if training:
@@ -47,7 +51,7 @@ class Cap3DDataset(Dataset):
 
         real_idx = idx // 8
         vid = idx % 8
-        
+
         uid = self.items[real_idx]
         label = self.labels[real_idx]
 

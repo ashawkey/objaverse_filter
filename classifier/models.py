@@ -26,7 +26,7 @@ class MLP(nn.Module):
         for l in range(self.num_layers):
             x = self.net[l](x)
             if l != self.num_layers - 1:
-                x = F.relu(x, inplace=True)
+                x = F.silu(x, inplace=True)
         return x
 
 class Classifier(nn.Module):
@@ -36,21 +36,17 @@ class Classifier(nn.Module):
         # image encoder 
         self.backbone: DinoVisionTransformer = dinov2_vitl14_reg()
         del self.backbone.mask_token # remove unused params
-
         self.backbone.requires_grad_(False)
 
         embed_dim = self.backbone.embed_dim
-        patch_size = self.backbone.patch_size
         layers = 4
 
         # classifier head
-        self.mlp = MLP((1 + layers) * embed_dim, 1, embed_dim, 5)
+        self.mlp = MLP((1 + layers) * embed_dim, 1, embed_dim, 8)
 
     def forward(self, x):
         # x: [B, 3, H, W], normalized
     
-        B, C, H, W = x.shape
-
         x = self.backbone.get_intermediate_layers(x, n=4, return_class_token=True)
             
         linear_input = torch.cat([
