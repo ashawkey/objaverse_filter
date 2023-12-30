@@ -1,0 +1,1 @@
+accelerate launch --config_file acc_configs/gpu1.yaml train.py
