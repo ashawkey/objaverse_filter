@@ -12,7 +12,7 @@ from safetensors.torch import load_file
 
 import kiui
 
-def main(num_epochs=5, resume=True, workspace='workspace'):
+def main(num_epochs=10, resume=True, workspace='workspace'):
 
     os.makedirs(workspace, exist_ok=True)
     accelerator = Accelerator(mixed_precision='fp16')
@@ -30,7 +30,7 @@ def main(num_epochs=5, resume=True, workspace='workspace'):
     train_dataset = Cap3DDataset(training=True)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=512,
+        batch_size=64,
         shuffle=True,
         num_workers=8,
         pin_memory=True,
@@ -40,7 +40,7 @@ def main(num_epochs=5, resume=True, workspace='workspace'):
     test_dataset = Cap3DDataset(training=False)
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=512,
+        batch_size=64,
         shuffle=False,
         num_workers=8,
         pin_memory=True,

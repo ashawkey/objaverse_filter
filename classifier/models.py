@@ -36,13 +36,13 @@ class Classifier(nn.Module):
         # image encoder 
         self.backbone: DinoVisionTransformer = dinov2_vitl14_reg()
         del self.backbone.mask_token # remove unused params
-        self.backbone.requires_grad_(False)
+        # self.backbone.requires_grad_(False)
 
         embed_dim = self.backbone.embed_dim
         layers = 4
 
         # classifier head
-        self.mlp = MLP((1 + layers) * embed_dim, 1, embed_dim, 8)
+        self.mlp = MLP((1 + layers) * embed_dim, 1, embed_dim, 3)
 
     def forward(self, x):
         # x: [B, 3, H, W], normalized
